@@ -10,9 +10,10 @@
 
  
 enum {LEFT, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10), PAUSE_GAME='p'}; 
-enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=3, CONTROLS=2};
+enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=10, CONTROLS=3};
 
-double DELAY = 0.1/PLAYERS;
+double DELAY = 0.1;
+int max_y=0, max_x=0;
 
 struct control_buttons{    
 	int down;    
@@ -23,7 +24,8 @@ struct control_buttons{
 
 struct food{    
 	int x;    
-	int y;    
+	int y; 
+	int color;   
 	time_t put_time;    
 	char point;    
 	uint8_t enable; 
@@ -45,28 +47,45 @@ typedef struct tail_t{
 	int y; 
 } tail_t;
 
-struct control_buttons player1_controls[CONTROLS] = {{'s', 'w', 'a', 'd'}, {'S', 'W', 'A', 'D'}};
-
-struct control_buttons player2_controls[CONTROLS] = {{KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT}, {KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT}};
+struct control_buttons default_controls[CONTROLS] = {{'s', 'w', 'a', 'd'}, {'S', 'W', 'A', 'D'}, {KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT}};
 
 void initFood(struct food f[], size_t size){  //Инициализация еды  
-	struct food init = {0,0,0,0,0};    
-	int max_y=0, max_x=0;    
+	struct food init = {0,0,3,0,0,0};      
 	getmaxyx(stdscr, max_y, max_x);    
 	for(size_t i=0; i<size; i++) {        
 		f[i] = init;    
 	} 
 }
 
-void putFoodSeed(struct food *fp){    // Обновить/разместить текущее зерно на поле
-	int max_x=0, max_y=0;    
-	char spoint[2] = {0};    
+void setColor(int objectType){    
+	attroff(COLOR_PAIR(1));    
+	attroff(COLOR_PAIR(2));    
+	attroff(COLOR_PAIR(3)); 
+	switch (objectType){ 
+		case 1:{    // SNAKE1            
+			attron(COLOR_PAIR(1)); 
+			break; 
+		} 
+		case 2:{    // SNAKE2            
+			attron(COLOR_PAIR(2)); 
+			break; 
+		} 
+		case 3:{    // FOOD            
+			attron(COLOR_PAIR(3)); 
+			break; 
+		} 
+	} 
+}
+
+void putFoodSeed(struct food *fp){    // Обновить/разместить текущее зерно на поле   
+	char spoint[2] = {0};   
 	getmaxyx(stdscr, max_y, max_x);    
 	mvprintw(fp->y, fp->x, " ");    
 	fp->x = rand() % (max_x - 1);    
 	fp->y = rand() % (max_y - 2) + 1; //Не занимаем верхнюю строку    
 	fp->put_time = time(NULL);    
-	fp->point = '$';    
+	fp->point = '$';  
+	setColor(fp->color);   
 	fp->enable = 1;    
 	spoint[0] = fp->point;    
 	mvprintw(fp->y, fp->x, "%s", spoint); 
@@ -78,9 +97,7 @@ void putFood(struct food f[], size_t number_seeds){    //Разместить е
 	} 
 }
 
-void refreshFood(struct food f[], int nfood){    //Обновление еды
-	int max_x=0, max_y=0;    
-	char spoint[2] = {0};    
+void refreshFood(struct food f[], int nfood){    //Обновление еды 
 	getmaxyx(stdscr, max_y, max_x);    
 	for(size_t i=0; i<nfood; i++){        
 		if( f[i].put_time ){            
@@ -114,26 +131,6 @@ void initHead(struct snake_t *head, int x, int y) {
 	head->direction = RIGHT; 
 }
 
-void setColor(int objectType){    
-	attroff(COLOR_PAIR(1));    
-	attroff(COLOR_PAIR(2));    
-	attroff(COLOR_PAIR(3)); 
-	switch (objectType){ 
-		case 1:{    // SNAKE1            
-			attron(COLOR_PAIR(1)); 
-			break; 
-		} 
-		case 2:{    // SNAKE2            
-			attron(COLOR_PAIR(2)); 
-			break; 
-		} 
-		case 3:{    // FOOD            
-			attron(COLOR_PAIR(3)); 
-			break; 
-		} 
-	} 
-}
-
 void initSnake(snake_t *head[], size_t size, int x, int y,int i){    
 	head[i] = (snake_t*)malloc(sizeof(snake_t));    
 	tail_t* tail = (tail_t*) malloc(MAX_TAIL_SIZE*sizeof(tail_t));    
@@ -141,11 +138,12 @@ void initSnake(snake_t *head[], size_t size, int x, int y,int i){
 	initHead(head[i], x, y);    
 	head[i]->tail = tail; // прикрепляем к голове хвост    
 	head[i]->tsize = size+1;
-	head[i]->color = i+1;    
+	head[i]->color = i+1;  
+	head[i]->controls = default_controls;  
 }
 
 void go(struct snake_t *head){ 
-	char ch = '@'; int max_x=0, max_y=0;
+	char ch = '@'; 
 	setColor(head->color);    
 	getmaxyx(stdscr, max_y, max_x); // macro - размер терминала    
 	mvprintw(head->y, head->x, " "); // очищаем один символ 
@@ -261,7 +259,6 @@ void repairSeed(struct food f[], size_t nfood, struct snake_t *head){    //Пр�
 }
 
 void printLevel(struct snake_t *head){ // счетчик уровня
-	int max_x = 0, max_y = 0;
 	getmaxyx(stdscr, max_y, max_x);
 	mvprintw(0, max_x - 10, "LEVEL: %ld", head->tsize);
 }
@@ -302,8 +299,7 @@ void update(snake_t *head, struct food f[], int key,int ai){   // Версия �
 	refreshFood(food, SEED_NUMBER);// Обновляем еду 
 	if (haveEat(head,food)){    
 		addTail(head);    
-		printLevel(head);    
-		DELAY -= 0.00009; 
+		printLevel(head);     
 	} 
 } 
 
@@ -318,7 +314,6 @@ void pause(void){
 
 void startMenu(){
 	initscr();
-	noecho;
 	curs_set(FALSE);
 	cbreak();
 	
@@ -341,7 +336,7 @@ void startMenu(){
 	attron(COLOR_PAIR(2));
 		mvprintw(7, 30, "  SNAKE  SNAKE  SNAKE SNAKE     ");
 		mvprintw(7, 30, "@******************************@");
-	char ch = (int) NULL;
+	char ch = (0);
 	while(1) {
 		attron(COLOR_PAIR(1));
 		mvprintw(20, 50, "Press any key ...");
@@ -364,25 +359,22 @@ int main(int argc, char **argv){
 		for (int i = 0; i < PLAYERS; i++){        
 			initSnake(snakes,START_TAIL_SIZE,10+i*10,10+i*10,i);
 		}
-		snakes[0]->controls = player1_controls;    
-		snakes[1]->controls = player2_controls;
 	initFood(food, MAX_FOOD_SIZE);
 	initscr(); 
-	start_color();    
-	init_pair(1, COLOR_RED, COLOR_BLACK);    
-	init_pair(2, COLOR_BLUE, COLOR_BLACK);    
-	init_pair(3, COLOR_GREEN, COLOR_BLACK);
 	keypad(stdscr, TRUE); // Включаем F1, F2, стрелки и т.д. 
 	raw();            // Откдючаем line buffering 
 	noecho();        // Отключаем echo() режим при вызове getch 
 	curs_set(FALSE); //Отключаем курсор 
-	mvprintw(0, 0,"Use arrows for control. Press 'F10' for EXIT"); 
+	mvprintw(0, 0," Use arrows for control. Press 'F10' for EXIT"); 
 	timeout(0); //Отключаем таймаут после нажатия клавиши в цикле 
-	setColor(1);
 	int key_pressed=0; 
 	putFood(food, SEED_NUMBER);
 	_Bool isFinish = 0;
 	startMenu();
+	start_color();    
+	init_pair(1, COLOR_RED, COLOR_BLACK);    
+	init_pair(2, COLOR_BLUE, COLOR_BLACK);    
+	init_pair(3, COLOR_GREEN, COLOR_BLACK);
 	while( key_pressed != STOP_GAME && !isFinish){
 		clock_t begin = clock();    
 		key_pressed = getch(); // Считываем клавишу
