@@ -6,7 +6,6 @@
 #include <time.h>
 
 #define MIN_Y  2
-#define PLAYERS  2
 
  
 enum {LEFT, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10), PAUSE_GAME='p'}; 
@@ -14,6 +13,7 @@ enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECOND
 
 double DELAY = 0.1;
 int max_y=0, max_x=0;
+uint8_t PLAYERS = 5;
 
 struct control_buttons{    
 	int down;    
@@ -230,7 +230,7 @@ int checkDirection(snake_t* snake, int32_t key) {
 	return checkDir;
 }
 
-_Bool isCrush(snake_t * snake){    //cтолкновение головы с хвостом
+_Bool isCrush(snake_t* snake){    //cтолкновение головы с хвостом
 	for(size_t i=1; i<snake->tsize; i++){ 
 		if(snake->x == snake->tail[i].x && snake->y == snake->tail[i].y){ 
 			return 1;
@@ -280,14 +280,22 @@ void autoChangeDirection(snake_t *snake, struct food food[], int foodSize){
 	for (int i = 1; i < foodSize; i++){   // ищем ближайшую еду        
 		pointer = (distance(*snake, food[i]) < distance(*snake, food[pointer])) ? i : pointer;    
 	}    
-	if ((snake->direction == RIGHT || snake->direction == LEFT) && (snake->y != food[pointer].y)){  // горизонтальное движение        
-		snake->direction = (food[pointer].y > snake->y) ? DOWN : UP;    
+	if ((snake->direction == RIGHT || snake->direction == LEFT) && (snake->y != food[pointer].y)){  // горизонтальное движение      
+		if (food[pointer].y > snake->y){
+			snake->direction = DOWN;
+		} else {
+			snake->direction = UP;
+		}
 	} else if ((snake->direction == DOWN || snake->direction == UP) && (snake->x != food[pointer].x)){  // вертикальное движение        
-		snake->direction = (food[pointer].x > snake->x) ? RIGHT : LEFT;    
+		if (food[pointer].x > snake->x){
+			snake->direction = RIGHT;
+		} else {
+			snake->direction = LEFT;
+		}     
 	} 
 }
 
-void update(snake_t *head, struct food f[], int key,int ai){   // Версия для добавления ИИ, вторая змея соперник
+void update(snake_t *head, struct food f[], int key,int ai){   // Версия с возможность ручного управления и использования ИИ
 	if (ai == 1){    
 		autoChangeDirection(head,f,SEED_NUMBER);
 	} 
@@ -324,11 +332,10 @@ void startMenu(){
 	}
 	start_color();    
 	init_pair(1, COLOR_RED, COLOR_BLACK);    
-	init_pair(2, COLOR_YELLOW, COLOR_BLACK); 
+	init_pair(2, COLOR_YELLOW, COLOR_BLACK);  
 	attron(COLOR_PAIR(1));
 	mvprintw(1,1,"1. Start");
 	attroff(COLOR_PAIR(1));
-	
 	attron(COLOR_PAIR(2));
 	mvprintw(3,1,"2. Exit");
 	attron(COLOR_PAIR(1));
@@ -357,7 +364,7 @@ void startMenu(){
 int main(int argc, char **argv){
 	snake_t* snakes[PLAYERS];    
 		for (int i = 0; i < PLAYERS; i++){        
-			initSnake(snakes,START_TAIL_SIZE,10+i*10,10+i*10,i);
+			initSnake(snakes,START_TAIL_SIZE,10+i*25,10+i,i);
 		}
 	initFood(food, MAX_FOOD_SIZE);
 	initscr(); 
@@ -378,11 +385,14 @@ int main(int argc, char **argv){
 	while( key_pressed != STOP_GAME && !isFinish){
 		clock_t begin = clock();    
 		key_pressed = getch(); // Считываем клавишу
-		update(snakes[0], food, key_pressed, 0); 
-		update(snakes[1], food, key_pressed, 1); 
-		if(isCrush(snakes[0])){    
-			printExit(snakes[0]);    
-			isFinish = 1; 
+		//update(snakes[0], food, key_pressed, 1); 
+		//update(snakes[1], food, key_pressed, 1); 
+		for (int i = 0; i < PLAYERS; i++){
+			update(snakes[i], food, key_pressed, 1);         
+			//if(isCrush(snakes[i])){    
+			//	printExit(snakes[i]);    
+			//	isFinish = 1; 
+			//}
 		}
 		if (key_pressed == PAUSE_GAME){
 			pause();
