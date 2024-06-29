@@ -5,15 +5,15 @@
 #include <curses.h>
 #include <time.h>
 
-#define MIN_Y  2
+#define MIN_Y  1
 
  
 enum {LEFT, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10), PAUSE_GAME='p'}; 
-enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=10, CONTROLS=3};
+enum {MAX_TAIL_SIZE=5, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=10, CONTROLS=3};
 
 double DELAY = 0.1;
 int max_y=0, max_x=0;
-uint8_t PLAYERS = 5;
+uint8_t PLAYERS = 1;
 
 struct control_buttons{    
 	int down;    
@@ -47,41 +47,79 @@ typedef struct tail_t{
 	int y; 
 } tail_t;
 
+struct base{
+	int x;
+	int y;
+	int color;
+	size_t value;
+} base;
+
 struct control_buttons default_controls[CONTROLS] = {{'s', 'w', 'a', 'd'}, {'S', 'W', 'A', 'D'}, {KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT}};
 
-void initFood(struct food f[], size_t size){  //Инициализация еды  
-	struct food init = {0,0,3,0,0,0};      
-	getmaxyx(stdscr, max_y, max_x);    
+void initFood(struct food f[], size_t size){  //Инициализация еды (тыквы)  
+	struct food init = {0,0,6,0,0,0};          
 	for(size_t i=0; i<size; i++) {        
 		f[i] = init;    
 	} 
 }
 
-void setColor(int objectType){    
+void initColorPairs(){    //инициализация цветов
+	start_color();    
+	init_pair(1, COLOR_RED, COLOR_BLACK);    
+	init_pair(2, COLOR_BLUE, COLOR_BLACK);    
+	init_pair(3, COLOR_GREEN, COLOR_BLACK);
+	init_pair(4, COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(5, COLOR_WHITE, COLOR_BLACK);
+	init_pair(6, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(7, COLOR_CYAN, COLOR_BLACK);
+}
+
+void setColor(int objectType){    //выбор цвета
+	initColorPairs();    
 	attroff(COLOR_PAIR(1));    
 	attroff(COLOR_PAIR(2));    
 	attroff(COLOR_PAIR(3)); 
+	attroff(COLOR_PAIR(4)); 
+	attroff(COLOR_PAIR(5)); 
+	attroff(COLOR_PAIR(6)); 
+	attroff(COLOR_PAIR(7)); 
 	switch (objectType){ 
-		case 1:{    // SNAKE1            
+		case 1:{                
 			attron(COLOR_PAIR(1)); 
 			break; 
 		} 
-		case 2:{    // SNAKE2            
+		case 2:{                
 			attron(COLOR_PAIR(2)); 
 			break; 
 		} 
-		case 3:{    // FOOD            
+		case 3:{               
 			attron(COLOR_PAIR(3)); 
+			break; 
+		} 
+		case 4:{               
+			attron(COLOR_PAIR(4)); 
+			break; 
+		} 
+		case 5:{               
+			attron(COLOR_PAIR(5)); 
+			break; 
+		} 
+		case 6:{               
+			attron(COLOR_PAIR(6)); 
+			break; 
+		} 
+		case 7:{               
+			attron(COLOR_PAIR(7)); 
 			break; 
 		} 
 	} 
 }
 
-void putFoodSeed(struct food *fp){    // Обновить/разместить текущее зерно на поле   
+void putFoodSeed(struct food *fp){    // Обновить/разместить текущее зерно на поле ()тыкву на поле  
 	char spoint[2] = {0};   
 	getmaxyx(stdscr, max_y, max_x);    
 	mvprintw(fp->y, fp->x, " ");    
-	fp->x = rand() % (max_x - 1);    
+	fp->x = rand() % (max_x - 1) + 1;  // Не занимаем крайний левый столбец  
 	fp->y = rand() % (max_y - 2) + 1; //Не занимаем верхнюю строку    
 	fp->put_time = time(NULL);    
 	fp->point = '$';  
@@ -91,14 +129,13 @@ void putFoodSeed(struct food *fp){    // Обновить/разместить �
 	mvprintw(fp->y, fp->x, "%s", spoint); 
 }
 
-void putFood(struct food f[], size_t number_seeds){    //Разместить еду на поле
+void putFood(struct food f[], size_t number_seeds){    //Разместить еду (тыкву) на поле
 	for(size_t i=0; i<number_seeds; i++){        
 		putFoodSeed(&f[i]);    
 	} 
 }
 
-void refreshFood(struct food f[], int nfood){    //Обновление еды 
-	getmaxyx(stdscr, max_y, max_x);    
+void refreshFood(struct food f[], int nfood){    //Обновление еды  (тыквы)  
 	for(size_t i=0; i<nfood; i++){        
 		if( f[i].put_time ){            
 			if( !f[i].enable || (time(NULL) - f[i].put_time) > FOOD_EXPIRE_SECONDS ){                
@@ -108,7 +145,7 @@ void refreshFood(struct food f[], int nfood){    //Обновление еды
 	} 
 }
 
-_Bool haveEat(struct snake_t *head, struct food f[]){    //Поедания зерна змейкой
+_Bool haveEat(struct snake_t *head, struct food f[]){    //Поедания зерна змейкой (сбор дроном тыквы)
 	for(size_t i=0; i<MAX_FOOD_SIZE; i++){        
 		if(f[i].enable && head->x == f[i].x && head->y == f[i].y){            
 			f[i].enable = 0;            
@@ -118,20 +155,20 @@ _Bool haveEat(struct snake_t *head, struct food f[]){    //Поедания зе
 	return 0; 
 }
 
-void initTail(struct tail_t t[], size_t size) {    
+void initTail(struct tail_t t[], size_t size) {   //инициализация хвоста (тележки) 
 	struct tail_t init_t={0,0}; 
 	for(size_t i=0; i<size; i++) {   
 		t[i]=init_t; 
 	} 
 }
 
-void initHead(struct snake_t *head, int x, int y) { 
+void initHead(struct snake_t *head, int x, int y) {  //инициализация головы (дрона)
 	head->x = x; 
 	head->y = y; 
 	head->direction = RIGHT; 
 }
 
-void initSnake(snake_t *head[], size_t size, int x, int y,int i){    
+void initSnake(snake_t *head[], size_t size, int x, int y,int i){  // инициализация змейки (дрон + тележка)
 	head[i] = (snake_t*)malloc(sizeof(snake_t));    
 	tail_t* tail = (tail_t*) malloc(MAX_TAIL_SIZE*sizeof(tail_t));    
 	initTail(tail, MAX_TAIL_SIZE);    
@@ -192,7 +229,7 @@ void goTail(struct snake_t *head) {
 	head->tail[0].y = head->y; 
 }
 
-void addTail(struct snake_t *head){    //Увеличение хвоста на 1 элемент
+void addTail(struct snake_t *head){    //Увеличение хвоста на 1 элемент (положили тыкву в тележку)
 	if(head == NULL || head->tsize>MAX_TAIL_SIZE){        
 		mvprintw(0, 0, "Can't add tail");        
 		return;    
@@ -230,7 +267,7 @@ int checkDirection(snake_t* snake, int32_t key) {
 	return checkDir;
 }
 
-_Bool isCrush(snake_t* snake){    //cтолкновение головы с хвостом
+_Bool isCrush(snake_t* snake){    //cтолкновение головы с хвостом (дрона с тележкой)
 	for(size_t i=1; i<snake->tsize; i++){ 
 		if(snake->x == snake->tail[i].x && snake->y == snake->tail[i].y){ 
 			return 1;
@@ -239,7 +276,7 @@ _Bool isCrush(snake_t* snake){    //cтолкновение головы с хв
 	return 0; 
 }
 
-void repairSeed(struct food f[], size_t nfood, struct snake_t *head){    //Проверка корректности выставления зерна
+void repairSeed(struct food f[], size_t nfood, struct snake_t *head){    //Проверка корректности выставления зерна (тыквы)
 	for( size_t i=0; i<head->tsize; i++ ){ 
 		for( size_t j=0; j<nfood; j++ ){  
 			if( f[j].x == head->tail[i].x && f[j].y == head->tail[i].y && f[i].enable ){     //Если хвост совпадает с зерном 
@@ -258,20 +295,20 @@ void repairSeed(struct food f[], size_t nfood, struct snake_t *head){    //Пр�
 	}
 }
 
-void printLevel(struct snake_t *head){ // счетчик уровня
+void printLevel(struct base b){ // счетчик уровня (заполнения базы)
 	getmaxyx(stdscr, max_y, max_x);
-	mvprintw(0, max_x - 10, "LEVEL: %ld", head->tsize);
+	mvprintw(0, max_x - 10, "LEVEL: %ld", b.value);
 }
 
-void printExit(struct snake_t *head){
+void printExit(struct base b){
 	int max_x = 0, max_y = 0;
 	getmaxyx(stdscr, max_y, max_x);
-	mvprintw(max_y /2, max_x /2 - 5, "Your LEVEL is %ld", head->tsize);
+	mvprintw(max_y /2, max_x /2 - 5, "Base value is %ld", b.value);
 	refresh();
 	getchar();
 }
 
-int distance(const snake_t snake, const struct food food){   // вычисляет количество ходов до еды    
+int distance(const snake_t snake, const struct food food){   // вычисляет количество ходов до еды  (тыквы)  
 	return (abs(snake.x - food.x) + abs(snake.y - food.y)); 
 }
 
@@ -295,19 +332,53 @@ void autoChangeDirection(snake_t *snake, struct food food[], int foodSize){
 	} 
 }
 
-void update(snake_t *head, struct food f[], int key,int ai){   // Версия с возможность ручного управления и использования ИИ
-	if (ai == 1){    
-		autoChangeDirection(head,f,SEED_NUMBER);
+void buildBase(struct base b){
+	getmaxyx(stdscr, max_y, max_x);
+	mvprintw(b.y, b.x, "                    ");
+	char ch = 'B';
+	setColor(b.color);
+	mvprintw(b.y, b.x, "%c", ch);
+}
+
+void goBase(struct snake_t *snake, struct base b){
+	if ((snake->direction == RIGHT || snake->direction == LEFT) && (snake->y != b.y)){  // горизонтальное движение      
+		if (b.y > snake->y){
+			snake->direction = DOWN;
+		} else {
+			snake->direction = UP;
+		}
+	} else if ((snake->direction == DOWN || snake->direction == UP) && (snake->x != b.x)){  // вертикальное движение        
+		if (b.x > snake->x){
+			snake->direction = RIGHT;
+		} else {
+			snake->direction = LEFT;
+		}     
+	} 
+}
+
+_Bool atBase (struct snake_t *snake, struct base b){
+	if(snake->x == b.x && snake->y == b.y){                                
+			return 1;        
+		}   
+	return 0;
+}
+
+void update(snake_t *head, struct food f[],struct base b, int key,int ai){   // Версия с возможностью ручного управления и использования ИИ
+	if (ai == 1){
+		if (head->tsize < MAX_TAIL_SIZE){    
+			autoChangeDirection(head,f,SEED_NUMBER);
+		} else {
+			goBase(head, b);
+		}
 	} 
 	go(head); 
 	goTail(head); 
 	if (checkDirection(head,key)){    
 		changeDirection(head, key); 
-	} 
+	}
 	refreshFood(food, SEED_NUMBER);// Обновляем еду 
 	if (haveEat(head,food)){    
-		addTail(head);    
-		printLevel(head);     
+		addTail(head);        
 	} 
 } 
 
@@ -330,22 +401,17 @@ void startMenu(){
 		printf("Your terminal does not support color\n");
 		exit(1);
 	}
-	start_color();    
-	init_pair(1, COLOR_RED, COLOR_BLACK);    
-	init_pair(2, COLOR_YELLOW, COLOR_BLACK);  
-	attron(COLOR_PAIR(1));
+	setColor(1); 
 	mvprintw(1,1,"1. Start");
-	attroff(COLOR_PAIR(1));
-	attron(COLOR_PAIR(2));
+	setColor(2);
 	mvprintw(3,1,"2. Exit");
-	attron(COLOR_PAIR(1));
-		mvprintw(7, 30, "@******************************@");
-	attron(COLOR_PAIR(2));
-		mvprintw(7, 30, "  SNAKE  SNAKE  SNAKE SNAKE     ");
-		mvprintw(7, 30, "@******************************@");
+	setColor(6);
+	mvprintw(7, 30, "@******************************@");
+	mvprintw(7, 30, "  SNAKE  SNAKE  SNAKE SNAKE     ");
+	mvprintw(7, 30, "@******************************@");
 	char ch = (0);
 	while(1) {
-		attron(COLOR_PAIR(1));
+		setColor(1);
 		mvprintw(20, 50, "Press any key ...");
 		ch = getch();
 		if (ch == '1'){
@@ -362,37 +428,45 @@ void startMenu(){
 }
 
 int main(int argc, char **argv){
-	snake_t* snakes[PLAYERS];    
-		for (int i = 0; i < PLAYERS; i++){        
-			initSnake(snakes,START_TAIL_SIZE,10+i*25,10+i,i);
-		}
-	initFood(food, MAX_FOOD_SIZE);
 	initscr(); 
 	keypad(stdscr, TRUE); // Включаем F1, F2, стрелки и т.д. 
 	raw();            // Откдючаем line buffering 
 	noecho();        // Отключаем echo() режим при вызове getch 
 	curs_set(FALSE); //Отключаем курсор 
-	mvprintw(0, 0," Use arrows for control. Press 'F10' for EXIT"); 
-	timeout(0); //Отключаем таймаут после нажатия клавиши в цикле 
+	mvprintw(0, 0," Press 'F10' for EXIT"); 
+	timeout(0); //Отключаем таймаут после нажатия клавиши в цикле
+	startMenu();
+	snake_t* snakes[PLAYERS];    
+		for (int i = 0; i < PLAYERS; i++){        
+			initSnake(snakes,START_TAIL_SIZE,10+i*35,10+i,i);
+		}
+	initFood(food, MAX_FOOD_SIZE);
+	struct base base = {1, 1, 7, 0}; 
 	int key_pressed=0; 
 	putFood(food, SEED_NUMBER);
 	_Bool isFinish = 0;
-	startMenu();
-	start_color();    
-	init_pair(1, COLOR_RED, COLOR_BLACK);    
-	init_pair(2, COLOR_BLUE, COLOR_BLACK);    
-	init_pair(3, COLOR_GREEN, COLOR_BLACK);
+	buildBase(base);
+	printLevel(base);
 	while( key_pressed != STOP_GAME && !isFinish){
 		clock_t begin = clock();    
-		key_pressed = getch(); // Считываем клавишу
-		//update(snakes[0], food, key_pressed, 1); 
-		//update(snakes[1], food, key_pressed, 1); 
+		key_pressed = getch(); // Считываем клавишу 
 		for (int i = 0; i < PLAYERS; i++){
-			update(snakes[i], food, key_pressed, 1);         
-			//if(isCrush(snakes[i])){    
-			//	printExit(snakes[i]);    
-			//	isFinish = 1; 
-			//}
+			update(snakes[i], food, base, key_pressed, 1);
+			if (atBase(snakes[i], base)){
+				base.value += snakes[i]->tsize;
+				buildBase(base);
+				printLevel(base);
+				free(snakes[i]->tail);        
+				free(snakes[i]);
+				initSnake(snakes,START_TAIL_SIZE,base.x + 1,base.y,i); 
+			}          
+			if(isCrush(snakes[i])){    
+				printExit(base);    
+				isFinish = 1; 
+			}
+			if (base.value == 50){    
+				isFinish = 1;
+			}
 		}
 		if (key_pressed == PAUSE_GAME){
 			pause();
@@ -401,8 +475,8 @@ int main(int argc, char **argv){
 		{}
 		refresh();  //Обновление экрана, вывели кадр анимации
 	}
-	for (int i = 0; i < PLAYERS; i++){        
-		printExit(snakes[i]);        
+	printExit(base);
+	for (int i = 0; i < PLAYERS; i++){                
 		free(snakes[i]->tail);        
 		free(snakes[i]);    
 	}
