@@ -1,0 +1,8 @@
+
+#include <curses.h>
+
+enum {LEFT, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10), PAUSE_GAME='p'}; 
+enum {MAX_TAIL_SIZE=5, START_TAIL_SIZE=0, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=10, CONTROLS=3, PLAYERS=3, };
+
+double DELAY = 0.1;
+int max_y=0, max_x=0;

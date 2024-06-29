@@ -10,8 +10,6 @@
 deps.mak
 .deps/
 .libs/
-Makefile
-Makefile.in
 .dirstamp
 
 #-----------------------------------------------------------------------
@@ -98,7 +96,6 @@ Makefile.in
 /po/ChangeLog.save
 /po/*.gmo
 /po/*.header
-/po/Makefile.in.in
 /po/Makevars.template
 /po/*.mo
 /po/*.pot
